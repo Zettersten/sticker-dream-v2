@@ -1,8 +1,24 @@
 ---
-description: Use Bun instead of Node.js, npm, pnpm, or vite.
+description: Sticker Dream — voice-to-coloring-page app. Use Bun. Follow project conventions.
 globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
-alwaysApply: false
+alwaysApply: true
 ---
+
+# Sticker Dream
+
+Voice-powered kids coloring page creator. Hold SPEAK → Fish Audio STT → fal.ai image generation → WebUSB TSPL print to a Phomemo PM-241 thermal label printer.
+
+## Project-specific rules
+
+- Read `DESIGN.md` before making any UI changes. All colors, fonts, shapes, and shadows are defined there.
+- The design theme is **Cotton Candy Arcade**: bubble pink (`#FF69B4`), sunshine yellow (`#FFE066`), marshmallow pink surface (`#FFF0F7`). No sharp corners, no blur shadows, no thin fonts.
+- `FISHAUDIO_API_KEY` and `FALAI_API_KEY` are server-only env vars. Never reference them in `src/` frontend files.
+- The state machine lives in `src/App.tsx`. States: `idle → processing → reviewing → generating → result`.
+- Audio capture is in `src/SpeakButton.tsx`. Minimum hold time is 4 seconds (`MIN_RECORD_MS = 4000`).
+- Printing is handled by `src/usePrinter.ts` via WebUSB + TSPL. Do not send raw PNG bytes — the printer requires TSPL bitmap commands.
+- Run `bun run check` (typecheck + ESLint + Prettier) before finishing any task.
+- Use `import type` for type-only imports — enforced by ESLint.
+- No `console.log` in browser-side code.
 
 Default to using Bun instead of Node.js.
 
