@@ -1,22 +1,44 @@
-import { useEffect, useRef } from "react";
-import { usePrinter } from "./usePrinter";
+import { useRef, useState } from "react";
+import type { PrintOptions } from "./usePrinter";
 
 interface GeneratedImageProps {
   imageUrl: string;
+  /** Printer state lifted from App so pairing happens before generation */
+  printerConnected: boolean;
+  printerStatus: string;
+  onPrint: (url: string, options?: PrintOptions) => void;
   onReset: () => void;
 }
 
-export function GeneratedImage({ imageUrl, onReset }: GeneratedImageProps) {
-  const { status, isConnected, error, requestPrinter, print } = usePrinter();
+export function GeneratedImage({
+  imageUrl,
+  printerConnected,
+  printerStatus,
+  onPrint,
+  onReset,
+}: GeneratedImageProps) {
+  const [imageLoaded, setImageLoaded] = useState(false);
   const hasPrintedRef = useRef(false);
 
-  // Auto-print once when image appears and a printer is connected
-  useEffect(() => {
-    if (isConnected && !hasPrintedRef.current) {
+  // Print fires once, immediately after the browser finishes rendering the image
+  function handleImageLoad() {
+    setImageLoaded(true);
+    if (printerConnected && !hasPrintedRef.current) {
       hasPrintedRef.current = true;
-      print(imageUrl, { fitToPage: true, media: "4x6" });
+      onPrint(imageUrl, { fitToPage: true, media: "4x6" });
     }
-  }, [isConnected, imageUrl, print]);
+  }
+
+  const imgStyle = {
+    maxHeight: "75dvh",
+    maxWidth: "min(90vw, 400px)",
+    width: "100%",
+    aspectRatio: "9 / 16",
+    borderRadius: 24,
+    border: "5px solid #FFFFFF",
+    boxShadow: "0 12px 0 #C13B7E, 0 16px 0 rgba(0,0,0,0.08)",
+    display: "block",
+  };
 
   return (
     <div
@@ -35,69 +57,56 @@ export function GeneratedImage({ imageUrl, onReset }: GeneratedImageProps) {
         cursor: "pointer",
       }}
     >
+      {/* Skeleton shown while image is loading */}
+      {!imageLoaded && (
+        <div
+          style={{
+            ...imgStyle,
+            background:
+              "linear-gradient(90deg, rgba(255,105,180,0.08) 25%, rgba(255,105,180,0.18) 50%, rgba(255,105,180,0.08) 75%)",
+            backgroundSize: "200% 100%",
+            animation: "skeleton-shimmer 1.4s ease-in-out infinite",
+          }}
+        />
+      )}
+
+      {/* The real image — hidden until loaded to avoid layout jank */}
       <img
         src={imageUrl}
         alt="Generated coloring page"
-        style={{
-          maxHeight: "75dvh",
-          maxWidth: "min(90vw, 400px)",
-          borderRadius: 24,
-          border: "5px solid #FFFFFF",
-          boxShadow: "0 12px 0 #C13B7E, 0 16px 0 rgba(0,0,0,0.08)",
-          display: "block",
-        }}
+        onLoad={handleImageLoad}
+        style={{ ...imgStyle, display: imageLoaded ? "block" : "none" }}
       />
 
-      {/* Printer controls — stop click from bubbling to reset */}
+      {/* Status row — stop clicks bubbling to reset */}
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}
+        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}
       >
-        {!isConnected && status !== "error" && (
-          <button
-            onClick={requestPrinter}
-            style={{
-              backgroundColor: "#FFE066",
-              color: "#C13B7E",
-              border: "4px solid #FFFFFF",
-              borderRadius: 9999,
-              padding: "14px 36px",
-              fontFamily: '"Fredoka One", system-ui, sans-serif',
-              fontSize: 22,
-              boxShadow: "0 6px 0 #FFCC00, 0 9px 0 #C13B7E",
-              cursor: "pointer",
-            }}
-          >
-            🖨️ Connect Printer
-          </button>
-        )}
-
-        {status === "printing" && (
+        {printerStatus === "printing" && (
           <p
             style={{
               fontFamily: '"Fredoka One", system-ui, sans-serif',
               fontSize: 20,
               color: "#FF69B4",
               margin: 0,
+              textShadow: "2px 3px 0 #C13B7E",
             }}
           >
-            Printing...
+            Printing…
           </p>
         )}
-
-        {status === "error" && error && (
+        {printerStatus === "connected" && imageLoaded && (
           <p
             style={{
               fontFamily: '"Nunito", system-ui, sans-serif',
               fontWeight: 700,
-              fontSize: 15,
-              color: "#C13B7E",
+              fontSize: 14,
+              color: "#FF69B4",
               margin: 0,
-              maxWidth: 280,
-              textAlign: "center",
             }}
           >
-            {error}
+            ✅ Sent to printer
           </p>
         )}
       </div>

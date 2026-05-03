@@ -2,6 +2,9 @@ import { useState, useCallback, useEffect } from "react";
 import { SpeakButton } from "./SpeakButton";
 import { WordDisplay } from "./WordDisplay";
 import { GeneratedImage } from "./GeneratedImage";
+import { Gallery } from "./Gallery";
+import { usePrinter } from "./usePrinter";
+import { useGenerationStore } from "./useGenerationStore";
 import "./index.css";
 
 // Single-word cancel terms — matched as whole words only
@@ -81,6 +84,9 @@ function LoadingDots({ label }: { label: string }) {
 
 export function App() {
   const [state, setState] = useState<AppState>(INITIAL);
+  const [showGallery, setShowGallery] = useState(false);
+  const { status: printerStatus, isConnected, requestPrinter, print } = usePrinter();
+  const { generations, saveGeneration } = useGenerationStore();
 
   const reset = useCallback(() => setState(INITIAL), []);
 
@@ -118,7 +124,10 @@ export function App() {
           reset();
           return;
         }
-        setState((s) => ({ ...s, phase: "result", imageUrl: data.imageUrl! }));
+        const url = data.imageUrl!;
+        // Save to local IndexedDB before showing
+        saveGeneration(url, state.sttText).catch(() => {});
+        setState((s) => ({ ...s, phase: "result", imageUrl: url }));
       } catch {
         if (!cancelled) reset();
       }
@@ -170,8 +179,26 @@ export function App() {
         width: "100%",
       }}
     >
+      {/* ── GALLERY OVERLAY ── */}
+      {showGallery && (
+        <Gallery
+          generations={generations}
+          isConnected={isConnected}
+          onClose={() => setShowGallery(false)}
+          onPrint={print}
+        />
+      )}
+
       {/* ── RESULT ── */}
-      {state.phase === "result" && <GeneratedImage imageUrl={state.imageUrl} onReset={reset} />}
+      {state.phase === "result" && (
+        <GeneratedImage
+          imageUrl={state.imageUrl}
+          printerConnected={isConnected}
+          printerStatus={printerStatus}
+          onPrint={print}
+          onReset={reset}
+        />
+      )}
 
       {/* ── WORD LYRICS (animating phase only — no button, no chrome) ── */}
       {state.phase === "animating" && (
@@ -201,6 +228,67 @@ export function App() {
           onAudioCaptured={handleAudioCaptured}
           onCancel={reset}
         />
+      )}
+
+      {/* ── IDLE CHROME: printer badge + gallery button ── */}
+      {state.phase === "idle" && (
+        <>
+          {/* Printer badge — top right — always visible so user can pair early */}
+          <button
+            onClick={!isConnected ? requestPrinter : undefined}
+            style={{
+              position: "absolute",
+              top: 20,
+              right: 20,
+              zIndex: 5,
+              backgroundColor: isConnected ? "rgba(255,105,180,0.18)" : "rgba(255,255,255,0.12)",
+              border: `2px solid ${
+                isConnected ? "rgba(255,105,180,0.6)" : "rgba(255,255,255,0.25)"
+              }`,
+              borderRadius: 9999,
+              padding: "8px 16px",
+              fontFamily: '"Nunito", system-ui, sans-serif',
+              fontWeight: 800,
+              fontSize: 13,
+              color: isConnected ? "#FF69B4" : "rgba(255,255,255,0.55)",
+              cursor: isConnected ? "default" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              whiteSpace: "nowrap",
+            }}
+          >
+            🖸️ {isConnected ? "Printer ready" : "Connect printer"}
+          </button>
+
+          {/* Gallery button — top left — only shown when there are saved generations */}
+          {generations.length > 0 && (
+            <button
+              onClick={() => setShowGallery(true)}
+              style={{
+                position: "absolute",
+                top: 20,
+                left: 20,
+                zIndex: 5,
+                backgroundColor: "rgba(255,224,102,0.15)",
+                border: "2px solid rgba(255,224,102,0.4)",
+                borderRadius: 9999,
+                padding: "8px 16px",
+                fontFamily: '"Nunito", system-ui, sans-serif',
+                fontWeight: 800,
+                fontSize: 13,
+                color: "#FFE066",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                whiteSpace: "nowrap",
+              }}
+            >
+              🖼️ {generations.length}
+            </button>
+          )}
+        </>
       )}
     </div>
   );
