@@ -4,27 +4,20 @@ import { WordDisplay } from "./WordDisplay";
 import { GeneratedImage } from "./GeneratedImage";
 import "./index.css";
 
-const CANCEL_WORDS = [
-  "stop",
-  "cancel",
-  "abort",
-  "quit",
-  "exit",
-  "nevermind",
-  "never mind",
-  "forget it",
-  "forget",
-  "scratch that",
-  "scratch",
-  "ignore",
-  "discard",
-  "reset",
-  "no",
-];
+// Single-word cancel terms — matched as whole words only
+// (substring matching would false-positive: "no" → "dino[no]saur", etc.)
+const CANCEL_WORDS_EXACT = ["stop", "cancel", "abort", "quit", "exit", "reset", "no"];
+
+// Multi-word cancel phrases — matched as substring of the full text
+const CANCEL_PHRASES = ["never mind", "nevermind", "forget it", "scratch that", "start over"];
 
 function hasCancelWord(text: string): boolean {
   const lower = text.toLowerCase();
-  return CANCEL_WORDS.some((w) => lower.includes(w));
+  const tokens = lower.split(/\W+/).filter(Boolean);
+  return (
+    CANCEL_WORDS_EXACT.some((w) => tokens.includes(w)) ||
+    CANCEL_PHRASES.some((p) => lower.includes(p))
+  );
 }
 
 type AppPhase = "idle" | "processing" | "reviewing" | "generating" | "result";
