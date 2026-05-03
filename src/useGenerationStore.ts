@@ -4,7 +4,8 @@ export interface Generation {
   id: string;
   prompt: string;
   ts: number;
-  blob: Blob;
+  /** Remote CDN URL — stored as-is so gallery <img> loads without CORS fetch */
+  imageUrl: string;
 }
 
 const DB_NAME = "sticker-dream-v2";
@@ -12,11 +13,16 @@ const STORE = "generations";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
+    const req = indexedDB.open(DB_NAME, 2); // bump version: blob → imageUrl
     req.onerror = () => reject(req.error);
     req.onsuccess = () => resolve(req.result as IDBDatabase);
-    req.onupgradeneeded = () => {
-      (req.result as IDBDatabase).createObjectStore(STORE, { keyPath: "id" });
+    req.onupgradeneeded = (e) => {
+      const db = (e.target as IDBOpenDBRequest).result;
+      // Drop old store if it exists (migration from blob-based v1)
+      if (db.objectStoreNames.contains(STORE)) {
+        db.deleteObjectStore(STORE);
+      }
+      db.createObjectStore(STORE, { keyPath: "id" });
     };
   });
 }
@@ -43,12 +49,11 @@ export function useGenerationStore() {
 
   const saveGeneration = useCallback(async (imageUrl: string, prompt: string) => {
     try {
-      const blob = await fetch(imageUrl).then((r) => r.blob());
       const entry: Generation = {
         id: crypto.randomUUID(),
         prompt,
         ts: Date.now(),
-        blob,
+        imageUrl,
       };
 
       const db = dbRef.current ?? (await openDb());

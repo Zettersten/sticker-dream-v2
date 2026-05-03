@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Generation } from "./useGenerationStore";
 import type { PrintOptions } from "./usePrinter";
 
@@ -6,25 +6,11 @@ interface GalleryProps {
   generations: Generation[];
   isConnected: boolean;
   onClose: () => void;
-  onPrint: (blobUrl: string, options?: PrintOptions) => void;
+  onPrint: (imageUrl: string, options?: PrintOptions) => void;
 }
 
 export function Gallery({ generations, isConnected, onClose, onPrint }: GalleryProps) {
   const [selected, setSelected] = useState<Generation | null>(null);
-
-  // Compute object URLs from blobs during render via useMemo (not a ref)
-  const blobUrls = useMemo(
-    () => new Map(generations.map((g) => [g.id, URL.createObjectURL(g.blob)])),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [generations.length], // recompute only when the count changes
-  );
-
-  // Revoke all object URLs when they are replaced or the gallery unmounts
-  useEffect(() => {
-    return () => {
-      blobUrls.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [blobUrls]);
 
   // Close overlay on Escape
   useEffect(() => {
@@ -144,7 +130,7 @@ export function Gallery({ generations, isConnected, onClose, onPrint }: GalleryP
                 }}
               >
                 <img
-                  src={blobUrls.get(gen.id) ?? ""}
+                  src={gen.imageUrl}
                   alt={gen.prompt}
                   style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                 />
@@ -190,7 +176,7 @@ export function Gallery({ generations, isConnected, onClose, onPrint }: GalleryP
           }}
         >
           <img
-            src={blobUrls.get(selected.id) ?? ""}
+            src={selected.imageUrl}
             alt={selected.prompt}
             onClick={(e) => e.stopPropagation()}
             style={{
@@ -222,9 +208,7 @@ export function Gallery({ generations, isConnected, onClose, onPrint }: GalleryP
           >
             {isConnected && (
               <button
-                onClick={() =>
-                  onPrint(blobUrls.get(selected.id) ?? "", { fitToPage: true, media: "4x6" })
-                }
+                onClick={() => onPrint(selected.imageUrl, { fitToPage: true, media: "4x6" })}
                 style={{
                   backgroundColor: "#FFE066",
                   color: "#C13B7E",

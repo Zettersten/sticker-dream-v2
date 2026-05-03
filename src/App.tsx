@@ -233,7 +233,7 @@ export function App() {
       {/* ── IDLE CHROME: printer badge + gallery button ── */}
       {state.phase === "idle" && (
         <>
-          {/* Printer badge — top right — always visible so user can pair early */}
+          {/* Printer badge — top right — connect early before generation */}
           <button
             onClick={!isConnected ? requestPrinter : undefined}
             style={{
@@ -241,27 +241,25 @@ export function App() {
               top: 20,
               right: 20,
               zIndex: 5,
-              backgroundColor: isConnected ? "rgba(255,105,180,0.18)" : "rgba(255,255,255,0.12)",
-              border: `2px solid ${
-                isConnected ? "rgba(255,105,180,0.6)" : "rgba(255,255,255,0.25)"
-              }`,
+              backgroundColor: isConnected ? "#FF69B4" : "#FFFFFF",
+              border: "4px solid #FFFFFF",
               borderRadius: 9999,
-              padding: "8px 16px",
-              fontFamily: '"Nunito", system-ui, sans-serif',
-              fontWeight: 800,
-              fontSize: 13,
-              color: isConnected ? "#FF69B4" : "rgba(255,255,255,0.55)",
+              padding: "10px 18px",
+              fontFamily: '"Fredoka One", system-ui, sans-serif',
+              fontSize: 15,
+              color: isConnected ? "#FFFFFF" : "#C13B7E",
               cursor: isConnected ? "default" : "pointer",
               display: "flex",
               alignItems: "center",
               gap: 6,
               whiteSpace: "nowrap",
+              boxShadow: isConnected ? "0 5px 0 #C13B7E" : "0 5px 0 #FFCC00, 0 8px 0 #C13B7E",
             }}
           >
-            🖸️ {isConnected ? "Printer ready" : "Connect printer"}
+            🖸️ {isConnected ? "Ready" : "Connect printer"}
           </button>
 
-          {/* Gallery button — top left — only shown when there are saved generations */}
+          {/* Gallery button — top left — visible once the first sticker is saved */}
           {generations.length > 0 && (
             <button
               onClick={() => setShowGallery(true)}
@@ -270,22 +268,22 @@ export function App() {
                 top: 20,
                 left: 20,
                 zIndex: 5,
-                backgroundColor: "rgba(255,224,102,0.15)",
-                border: "2px solid rgba(255,224,102,0.4)",
+                backgroundColor: "#FFE066",
+                border: "4px solid #FFFFFF",
                 borderRadius: 9999,
-                padding: "8px 16px",
-                fontFamily: '"Nunito", system-ui, sans-serif',
-                fontWeight: 800,
-                fontSize: 13,
-                color: "#FFE066",
+                padding: "10px 18px",
+                fontFamily: '"Fredoka One", system-ui, sans-serif',
+                fontSize: 15,
+                color: "#C13B7E",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
                 whiteSpace: "nowrap",
+                boxShadow: "0 5px 0 #FFCC00, 0 8px 0 #C13B7E",
               }}
             >
-              🖼️ {generations.length}
+              🖼️ {generations.length} sticker{generations.length !== 1 ? "s" : ""}
             </button>
           )}
         </>
