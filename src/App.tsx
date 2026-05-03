@@ -141,7 +141,7 @@ export function App() {
 
       try {
         const formData = new FormData();
-        formData.append("audio", blob, "audio.webm");
+        formData.append("audio", blob, blob.type === "audio/wav" ? "audio.wav" : "audio.webm");
         const res = await fetch("/api/stt", { method: "POST", body: formData });
         const data = (await res.json()) as { text?: string; error?: string };
 

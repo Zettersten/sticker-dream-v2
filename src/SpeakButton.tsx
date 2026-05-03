@@ -22,6 +22,64 @@ function getMimeType(): string {
   return "";
 }
 
+/**
+ * Decode whatever the browser recorded (webm/opus, ogg, etc.) via AudioContext
+ * and re-encode as a 16-bit mono 16 kHz WAV blob.
+ *
+ * WAV/PCM is codec-free and universally accepted by all STT APIs including
+ * Fish Audio, which rejects webm+Opus from Chrome's MediaRecorder.
+ */
+async function toWav(chunks: Blob[]): Promise<Blob> {
+  const raw = new Blob(chunks);
+  const arrayBuffer = await raw.arrayBuffer();
+  const audioCtx = new AudioContext({ sampleRate: 16_000 });
+  const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+  await audioCtx.close();
+
+  // Mix down to mono
+  const monoData = new Float32Array(decoded.length);
+  for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
+    const channel = decoded.getChannelData(ch);
+    for (let i = 0; i < decoded.length; i++) {
+      monoData[i]! += channel[i]! / decoded.numberOfChannels;
+    }
+  }
+
+  // Float32 → Int16
+  const pcm16 = new Int16Array(monoData.length);
+  for (let i = 0; i < monoData.length; i++) {
+    pcm16[i] = Math.max(-32_768, Math.min(32_767, Math.round(monoData[i]! * 32_767)));
+  }
+
+  // Build WAV header
+  const sampleRate = decoded.sampleRate;
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const dataSize = pcm16.byteLength;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const v = new DataView(buffer);
+
+  const w32 = (off: number, val: number, le = true) => v.setUint32(off, val, le);
+  const w16 = (off: number, val: number) => v.setUint16(off, val, true);
+
+  v.setUint32(0, 0x52_49_46_46, false); // "RIFF"
+  w32(4, 36 + dataSize);
+  v.setUint32(8, 0x57_41_56_45, false); // "WAVE"
+  v.setUint32(12, 0x66_6d_74_20, false); // "fmt "
+  w32(16, 16); // chunk size
+  w16(20, 1); // PCM
+  w16(22, numChannels);
+  w32(24, sampleRate);
+  w32(28, (sampleRate * numChannels * bitsPerSample) / 8); // byte rate
+  w16(32, (numChannels * bitsPerSample) / 8); // block align
+  w16(34, bitsPerSample);
+  v.setUint32(36, 0x64_61_74_61, false); // "data"
+  w32(40, dataSize);
+  new Int16Array(buffer, 44).set(pcm16);
+
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
 export function SpeakButton({
   mode,
   countdown = 3,
@@ -42,14 +100,19 @@ export function SpeakButton({
     const elapsed = performance.now() - startTimeRef.current;
 
     recorder.onstop = () => {
-      const mimeType = recorder.mimeType || "audio/webm";
-      const blob = new Blob(chunksRef.current, { type: mimeType });
+      const captured = [...chunksRef.current];
       recorder.stream.getTracks().forEach((t) => t.stop());
       recorderRef.current = null;
-      if (elapsed >= MIN_RECORD_MS) {
-        onAudioCaptured(blob);
-      }
-      // silently discard if too short
+      if (elapsed < MIN_RECORD_MS) return; // silently discard if too short
+
+      // Convert to WAV — Fish Audio rejects webm/opus from Chrome's MediaRecorder
+      toWav(captured)
+        .then((wav) => onAudioCaptured(wav))
+        .catch(() => {
+          // Fallback: send raw recording and hope for the best
+          const raw = new Blob(captured, { type: recorder.mimeType || "audio/webm" });
+          onAudioCaptured(raw);
+        });
     };
 
     recorder.stop();
