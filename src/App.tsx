@@ -20,7 +20,9 @@ function hasCancelWord(text: string): boolean {
   );
 }
 
-type AppPhase = "idle" | "processing" | "reviewing" | "generating" | "result";
+// animating: lyrics playing, no button shown
+// reviewing: lyrics done, cancel countdown active
+type AppPhase = "idle" | "processing" | "animating" | "reviewing" | "generating" | "result";
 
 interface AppState {
   phase: AppPhase;
@@ -82,7 +84,7 @@ export function App() {
 
   const reset = useCallback(() => setState(INITIAL), []);
 
-  // 3-second countdown during reviewing phase → trigger generate
+  // 3-second countdown — only starts once lyrics finish (reviewing phase)
   useEffect(() => {
     if (state.phase !== "reviewing") return;
 
@@ -147,7 +149,8 @@ export function App() {
           return;
         }
 
-        setState((s) => ({ ...s, phase: "reviewing", sttText: data.text!, countdown: 3 }));
+        // Go to animating first — countdown starts only after lyrics complete
+        setState((s) => ({ ...s, phase: "animating", sttText: data.text!, countdown: 3 }));
       } catch {
         reset();
       }
@@ -170,13 +173,11 @@ export function App() {
       {/* ── RESULT ── */}
       {state.phase === "result" && <GeneratedImage imageUrl={state.imageUrl} onReset={reset} />}
 
-      {/* ── WORD LYRICS (reviewing phase) ── */}
-      {state.phase === "reviewing" && (
+      {/* ── WORD LYRICS (animating phase only — no button, no chrome) ── */}
+      {state.phase === "animating" && (
         <WordDisplay
           text={state.sttText}
-          onComplete={() => {
-            /* countdown drives the transition */
-          }}
+          onComplete={() => setState((s) => ({ ...s, phase: "reviewing", countdown: 3 }))}
         />
       )}
 
@@ -184,10 +185,18 @@ export function App() {
       {state.phase === "processing" && <LoadingDots label="Listening..." />}
       {state.phase === "generating" && <LoadingDots label="Creating..." />}
 
-      {/* ── SPEAK / CANCEL BUTTON ── */}
-      {(state.phase === "idle" || state.phase === "reviewing") && (
+      {/* ── SPEAK / CANCEL BUTTON (idle + reviewing only) ── */}
+      {state.phase === "idle" && (
         <SpeakButton
-          mode={state.phase === "reviewing" ? "cancel" : "speak"}
+          mode="speak"
+          countdown={3}
+          onAudioCaptured={handleAudioCaptured}
+          onCancel={reset}
+        />
+      )}
+      {state.phase === "reviewing" && (
+        <SpeakButton
+          mode="cancel"
           countdown={state.countdown}
           onAudioCaptured={handleAudioCaptured}
           onCancel={reset}
