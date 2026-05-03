@@ -77,12 +77,13 @@ const server = serve({
           return Response.json({ error: "No text provided" }, { status: 400 });
         }
 
-        const result = await fal.subscribe("fal-ai/flux/dev", {
+        const result = await fal.subscribe("openai/gpt-image-2", {
           input: {
             prompt: buildColoringPagePrompt(text),
+            quality: "low",
             image_size: "portrait_16_9",
-            output_format: "png",
             num_images: 1,
+            output_format: "png",
           },
         });
 
