@@ -186,6 +186,7 @@ export function App() {
           isConnected={isConnected}
           onClose={() => setShowGallery(false)}
           onPrint={print}
+          onRequestPrinter={requestPrinter}
         />
       )}
 
