@@ -259,13 +259,13 @@ export function App() {
             🖸️ {isConnected ? "Ready" : "Connect printer"}
           </button>
 
-          {/* Gallery button — top left — visible once the first sticker is saved */}
+          {/* Gallery button — bottom left — never overlaps the top-right printer badge */}
           {generations.length > 0 && (
             <button
               onClick={() => setShowGallery(true)}
               style={{
                 position: "absolute",
-                top: 20,
+                bottom: 28,
                 left: 20,
                 zIndex: 5,
                 backgroundColor: "#FFE066",
